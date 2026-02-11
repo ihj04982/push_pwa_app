@@ -1,20 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
 import type { MessagePayload } from "firebase/messaging";
 import {
-  getTokenWhenPermissionGranted,
   listenForegroundMessages,
   registerTokenToFirestore,
   requestPermissionAndToken
 } from "./notifications";
+import { useInstallPrompt } from "./useInstallPrompt";
 
 type StatusState = "success" | "error" | undefined;
 
 function App() {
-  const [status, setStatus] = useState("초기화 중…");
+  const [status, setStatus] = useState("아래 버튼을 눌러 알림 권한을 요청하고 토큰을 발급받으세요.");
   const [statusState, setStatusState] = useState<StatusState>(undefined);
-  const [phase, setPhase] = useState<string>("초기화 중");
+  const [phase, setPhase] = useState<string>("대기 중");
   const [isLoading, setIsLoading] = useState(false);
   const [lastMessage, setLastMessage] = useState<MessagePayload | null>(null);
+  const [debugExpanded, setDebugExpanded] = useState(true);
+  const {
+    canPrompt,
+    triggerInstall,
+    isStandalone,
+    isIOS,
+    isInAppBrowser,
+    showAddToHome,
+  } = useInstallPrompt();
 
   useEffect(() => {
     const unsubscribePromise = listenForegroundMessages((payload) => {
@@ -30,40 +39,6 @@ function App() {
       unsubscribePromise
         .then((unsubscribe) => unsubscribe?.())
         .catch(() => undefined);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (Notification.permission !== "granted") {
-      setPhase("대기 중");
-      setStatus("알림 권한을 요청해 주세요.");
-      return;
-    }
-    let cancelled = false;
-    setPhase("토큰 발급 중");
-    setStatus("FCM 토큰 발급 중…");
-    getTokenWhenPermissionGranted()
-      .then((currentToken) => {
-        if (cancelled || !currentToken) return;
-        setPhase("Firestore 등록 중");
-        setStatus("Firestore에 토큰 등록 중…");
-        return registerTokenToFirestore(currentToken).then(() => currentToken);
-      })
-      .then((currentToken) => {
-        if (cancelled || !currentToken) return;
-        setPhase("완료");
-        setStatus("알림 허용됨. FCM 토큰이 Firestore에 자동 등록되었습니다.");
-        setStatusState("success");
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPhase("대기 중");
-          setStatus("알림 권한을 요청해 주세요.");
-          setStatusState(undefined);
-        }
-      });
-    return () => {
-      cancelled = true;
     };
   }, []);
 
@@ -109,34 +84,125 @@ function App() {
 
   return (
     <main id="main-content" className="app">
-      <h1>Push PWA App</h1>
+      <h1 className="app__title">Push PWA App</h1>
 
-      <section className="debug-status" aria-live="polite">
-        <h2>디버그 상태</h2>
-        <div className="debug-phase">
-          <span className="phase-label">현재 단계:</span>
-          <span className="phase-value" data-phase={phase}>
-            {phase}
-          </span>
-        </div>
-        <p className="status" data-state={statusState}>
+      {/* 1. Primary: 알림 설정 — 메인 액션 */}
+      <section className="app__primary" aria-labelledby="main-cta-heading">
+        <h2 id="main-cta-heading" className="visually-hidden">
+          알림 설정
+        </h2>
+        <p className="app__status" aria-live="polite" data-state={statusState}>
           {status}
         </p>
+        <button
+          type="button"
+          onClick={handleEnableNotification}
+          disabled={isLoading}
+          aria-label="알림 권한 요청 및 FCM 토큰 발급"
+          aria-busy={isLoading}
+          className="app__primary-btn"
+        >
+          {isLoading ? "권한 요청 중…" : "알림 권한 요청 및 토큰 발급"}
+        </button>
       </section>
 
-      <button
-        type="button"
-        onClick={handleEnableNotification}
-        disabled={isLoading}
-        aria-label="알림 권한 요청 및 FCM 토큰 발급"
-        aria-busy={isLoading}
-      >
-        {isLoading ? "권한 요청 중…" : "알림 권한 요청 및 토큰 발급"}
-      </button>
+      {/* 2. Secondary: 홈 화면에 추가 — 보조 안내 */}
+      {showAddToHome && (
+        <section className="app__secondary" aria-labelledby="add-to-home-heading">
+          <h2 id="add-to-home-heading" className="app__heading--sub">
+            홈 화면에 추가
+          </h2>
+          {canPrompt ? (
+            <button
+              type="button"
+              onClick={triggerInstall}
+              className="app__secondary-btn"
+              aria-label="홈 화면에 앱 추가"
+            >
+              홈 화면에 추가
+            </button>
+          ) : isIOS ? (
+            <div className="app__guide">
+              {isInAppBrowser ? (
+                <>
+                  <p>
+                    이 기능은 Safari에서만 가능해요. 링크를 길게 눌러{" "}
+                    <strong>Safari에서 열기</strong>를 선택한 뒤, Safari에서{" "}
+                    <strong>더 보기(⋯)</strong>가 보이면 먼저 누르고{" "}
+                    <strong>공유(↑)</strong> 버튼을 누른 다음{" "}
+                    <strong>홈 화면에 추가</strong>를 선택하세요.
+                  </p>
+                  <a
+                    href={window.location.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="app__link"
+                  >
+                    이 페이지를 Safari에서 열기
+                  </a>
+                </>
+              ) : (
+                <p>
+                  <strong>더 보기(⋯)</strong>가 보이면 먼저 누른 뒤{" "}
+                  <strong>공유(↑)</strong> 버튼을 누르고,{" "}
+                  <strong>홈 화면에 추가</strong>를 선택하세요.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="app__guide">
+              브라우저 <strong>메뉴(⋮)</strong>에서{" "}
+              <strong>홈 화면에 추가</strong> 또는 <strong>앱 설치</strong>를
+              선택하세요.
+            </p>
+          )}
+        </section>
+      )}
 
-      <section className="panel">
-        <h2>Last Foreground Message</h2>
-        <pre>{formattedMessage}</pre>
+      {/* 3. Data: 마지막 수신 메시지 — 참고용 데이터 */}
+      <section className="app__data" aria-labelledby="last-message-heading">
+        <h2 id="last-message-heading" className="app__heading--sub">
+          Last Foreground Message
+        </h2>
+        <pre className="app__pre">{formattedMessage}</pre>
+      </section>
+
+      {/* 4. Utility: 디버그 — 개발자용, 최소 시각적 비중 */}
+      <section
+        className={`app__debug ${debugExpanded ? "" : "app__debug--collapsed"}`}
+        aria-live={debugExpanded ? "polite" : undefined}
+      >
+        <div className="app__debug-header">
+          <h2 className="app__heading--utility">디버그 상태</h2>
+          <button
+            type="button"
+            onClick={() => setDebugExpanded((prev) => !prev)}
+            aria-expanded={debugExpanded}
+            aria-controls="debug-status-content"
+            aria-label={debugExpanded ? "디버그 상태 접기" : "디버그 상태 펼치기"}
+            className="app__debug-toggle"
+          >
+            {debugExpanded ? "접기" : "펼치기"}
+            <span className="app__debug-chevron" aria-hidden="true">
+              {debugExpanded ? " ▲" : " ▼"}
+            </span>
+          </button>
+        </div>
+        <div
+          id="debug-status-content"
+          className="app__debug-content"
+          hidden={!debugExpanded}
+        >
+          <p className="app__debug-line">
+            <span className="app__debug-label">현재 단계</span>
+            <span className="app__debug-value" data-phase={phase}>
+              {phase}
+            </span>
+          </p>
+          <p className="app__status app__status--small" data-state={statusState}>
+            {status}
+          </p>
+        </div>
       </section>
     </main>
   );

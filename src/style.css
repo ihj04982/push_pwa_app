@@ -1,3 +1,8 @@
+/* -------------------------------------------------------------------------
+   정보 계층: 제목 > Primary(알림) > Secondary(홈추가) > Data(메시지) > Utility(디버그)
+   카드 제거, 여백·타이포·색감으로만 계층 표현
+   ------------------------------------------------------------------------- */
+
 :root {
   font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -51,109 +56,251 @@ body {
 }
 
 .app {
-  max-width: 860px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 2rem 1rem 3rem;
+  padding: 2rem 1.25rem 3rem;
 }
 
-h1 {
-  margin: 0 0 0.75rem;
-  font-size: 2rem;
+/* ---- 제목 (최상위) ---- */
+.app__title {
+  margin: 0 0 1.75rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
 }
 
-h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.status {
+/* ---- 1. Primary: 알림 설정 (메인 액션만 강조, 카드 없음) ---- */
+.app__primary {
+  margin-bottom: 2rem;
+}
+
+.app__status {
   margin: 0 0 1rem;
-  color: #cbd5e1;
+  font-size: 0.9375rem;
+  color: #94a3b8;
+  line-height: 1.5;
 }
 
-.status[data-state="success"] {
+.app__status[data-state="success"] {
   color: #86efac;
 }
 
-.status[data-state="error"] {
+.app__status[data-state="error"] {
   color: #fca5a5;
 }
 
-button {
-  border: 1px solid #334155;
-  border-radius: 10px;
-  padding: 0.7rem 1rem;
-  color: #f8fafc;
-  background: #1d4ed8;
-  font-size: 0.95rem;
+.app__status--small {
+  font-size: 0.8125rem;
+  margin-bottom: 0;
+}
+
+.app__primary-btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
   font-weight: 600;
+  color: #fff;
+  background: #2563eb;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(147, 197, 253, 0.3);
+  -webkit-tap-highlight-color: transparent;
 }
 
-button:hover {
-  background: #1e40af;
+.app__primary-btn:hover {
+  background: #1d4ed8;
 }
 
-button:focus-visible {
+.app__primary-btn:focus-visible {
   outline: 2px solid #93c5fd;
   outline-offset: 2px;
 }
 
-button:disabled {
-  opacity: 0.7;
+.app__primary-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
-.debug-status {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border-radius: 12px;
-  border: 1px solid #475569;
-  background: #1e293b;
+/* ---- 2. Secondary: 홈 화면에 추가 (보조, 구분선으로만 분리) ---- */
+.app__secondary {
+  padding-top: 1.5rem;
+  border-top: 1px solid #334155;
+  margin-bottom: 1.5rem;
 }
 
-.debug-phase {
+.app__heading--sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.app__secondary-btn {
+  margin-top: 0.25rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #e2e8f0;
+  background: transparent;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.app__secondary-btn:hover {
+  border-color: #64748b;
+  color: #f8fafc;
+}
+
+.app__secondary-btn:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.app__guide {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+.app__guide p {
+  margin: 0 0 0.5rem;
+}
+
+.app__guide p:last-child {
+  margin-bottom: 0;
+}
+
+.app__link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
+.app__link:hover {
+  color: #bfdbfe;
+}
+
+.app__link:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+/* ---- 3. Data: Last Foreground Message (데이터 블록만 박스) ---- */
+.app__data {
+  padding-top: 1.5rem;
+  border-top: 1px solid #334155;
+  margin-bottom: 1.5rem;
+}
+
+.app__data .app__heading--sub {
   margin-bottom: 0.5rem;
 }
 
-.phase-label {
+.app__pre {
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
   color: #94a3b8;
-  font-size: 0.875rem;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
-.phase-value {
-  margin-left: 0.5rem;
+/* ---- 4. Utility: 디버그 (최소 비중, 카드 없음) ---- */
+.app__debug {
+  padding-top: 1.25rem;
+  border-top: 1px solid #1e293b;
+}
+
+.app__heading--utility {
+  margin: 0;
+  font-size: 0.75rem;
   font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.app__debug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.app__debug-toggle {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.app__debug-toggle:hover {
+  color: #94a3b8;
+}
+
+.app__debug-toggle:focus-visible {
+  outline: 2px solid #475569;
+  outline-offset: 2px;
+}
+
+.app__debug-chevron {
+  margin-left: 0.15rem;
+  color: #64748b;
+}
+
+.app__debug-content {
+  margin-top: 0.75rem;
+}
+
+.app__debug-line {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.app__debug-label {
+  color: #64748b;
+  margin-right: 0.5rem;
+}
+
+.app__debug-value {
+  font-weight: 500;
   color: #fbbf24;
 }
 
-.phase-value[data-phase="완료"] {
+.app__debug-value[data-phase="완료"] {
   color: #86efac;
 }
 
-.phase-value[data-phase="오류"] {
+.app__debug-value[data-phase="오류"] {
   color: #fca5a5;
-}
-
-.panel {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-radius: 12px;
-  border: 1px solid #334155;
-  background: #0b1222;
-}
-
-.panel pre {
-  max-height: 12rem;
-  overflow: auto;
-  scroll-margin-top: 1rem;
-}
-
-pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: #93c5fd;
 }

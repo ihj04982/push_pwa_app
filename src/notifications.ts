@@ -18,6 +18,16 @@ function getOrCreateDeviceId(): string {
   return id;
 }
 
+/** 토큰에서 Firestore 문서 ID 생성. 같은 토큰은 항상 같은 문서로 매핑되어 중복 등록 방지. */
+async function tokenToDocId(token: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(token)
+  );
+  const arr = Array.from(new Uint8Array(buf));
+  return arr.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 64);
+}
+
 const messagingScope = "/firebase-cloud-messaging-push-scope";
 const messagingSwUrl = "/firebase-messaging-sw.js";
 
@@ -103,12 +113,16 @@ export async function getTokenWhenPermissionGranted(): Promise<string | null> {
   });
 }
 
-/** FCM 토큰을 Firestore fcmTokens 컬렉션에 자동 등록. */
+/**
+ * FCM 토큰을 Firestore fcmTokens 컬렉션에 등록.
+ * 문서 ID는 토큰 해시로 하여 같은 토큰이 여러 문서로 쌓이지 않도록 함(캠페인 중복 수신 방지).
+ */
 export async function registerTokenToFirestore(token: string): Promise<void> {
+  const docId = await tokenToDocId(token);
   const deviceId = getOrCreateDeviceId();
   await setDoc(
-    doc(db, FCM_TOKENS_COLLECTION, deviceId),
-    { token, timestamp: serverTimestamp() },
+    doc(db, FCM_TOKENS_COLLECTION, docId),
+    { token, deviceId, timestamp: serverTimestamp() },
     { merge: true }
   );
 }

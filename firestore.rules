@@ -1,8 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /fcmTokens/{deviceId} {
+    match /fcmTokens/{tokenId} {
       allow create, update: if request.resource.data.token is string
+        && request.resource.data.deviceId is string
         && 'timestamp' in request.resource.data;
       allow read, delete: if false;
     }
