@@ -1,7 +1,5 @@
-/* -------------------------------------------------------------------------
-   정보 계층: 제목 > Primary(알림) > Secondary(홈추가) > Data(메시지) > Utility(디버그)
-   카드 제거, 여백·타이포·색감으로만 계층 표현
-   ------------------------------------------------------------------------- */
+/* 계층: 제목 > Primary > Secondary > Data > Debug
+   타이포: 패밀리 1종, 크기 4단계, 두께 3단계(400/500/600) */
 
 :root {
   font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -14,6 +12,15 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* 타이포 스케일: 제목 / 본문 / 보조 / 캡션 */
+  --font-size-title: 1.5rem;
+  --font-size-body: 0.9375rem;
+  --font-size-meta: 0.8125rem;
+  --font-size-caption: 0.75rem;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
 }
 
 * {
@@ -27,7 +34,7 @@
   padding: 0.75rem 1rem;
   background: #1d4ed8;
   color: #f8fafc;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   text-decoration: none;
   z-index: 100;
   transform: translateY(-100%);
@@ -61,11 +68,10 @@ body {
   padding: 2rem 1.25rem 3rem;
 }
 
-/* ---- 제목 (최상위) ---- */
 .app__title {
   margin: 0 0 1.75rem;
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: -0.02em;
   color: #f8fafc;
 }
@@ -82,16 +88,20 @@ body {
   border: 0;
 }
 
-/* ---- 1. Primary: 알림 설정 (메인 액션만 강조, 카드 없음) ---- */
+/* ---- 1. Primary ---- */
 .app__primary {
   margin-bottom: 2rem;
 }
 
 .app__status {
   margin: 0 0 1rem;
-  font-size: 0.9375rem;
+  font-size: var(--font-size-body);
   color: #94a3b8;
   line-height: 1.5;
+}
+
+.app__primary .app__status--primary {
+  margin-bottom: 1.25rem;
 }
 
 .app__status[data-state="success"] {
@@ -102,16 +112,66 @@ body {
   color: #fca5a5;
 }
 
-.app__status--small {
-  font-size: 0.8125rem;
-  margin-bottom: 0;
+.app__primary-form {
+  margin-bottom: 1rem;
+}
+
+.app__primary-hint {
+  margin: 0 0 0.75rem;
+  font-size: var(--font-size-meta);
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.app__device-name-wrap {
+  margin-bottom: 1rem;
+}
+
+.app__device-name-label {
+  display: block;
+  font-size: var(--font-size-meta);
+  font-weight: var(--font-weight-semibold);
+  color: #e2e8f0;
+  margin-bottom: 0.375rem;
+}
+
+.app__required {
+  color: #f87171;
+  font-weight: var(--font-weight-medium);
+}
+
+.app__device-name-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  font-size: var(--font-size-body);
+  color: #e2e8f0;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.app__device-name-input::placeholder {
+  color: #64748b;
+}
+
+.app__device-name-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.app__device-name-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .app__primary-btn {
   display: inline-block;
   padding: 0.75rem 1.5rem;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
   color: #fff;
   background: #2563eb;
   border: none;
@@ -135,7 +195,6 @@ body {
   cursor: not-allowed;
 }
 
-/* ---- 2. Secondary: 홈 화면에 추가 (보조, 구분선으로만 분리) ---- */
 .app__secondary {
   padding-top: 1.5rem;
   border-top: 1px solid #334155;
@@ -144,8 +203,8 @@ body {
 
 .app__heading--sub {
   margin: 0 0 0.5rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--font-size-meta);
+  font-weight: var(--font-weight-semibold);
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -154,8 +213,8 @@ body {
 .app__secondary-btn {
   margin-top: 0.25rem;
   padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
   color: #e2e8f0;
   background: transparent;
   border: 1px solid #475569;
@@ -175,7 +234,7 @@ body {
 
 .app__guide {
   margin: 0;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-meta);
   color: #94a3b8;
   line-height: 1.5;
 }
@@ -191,7 +250,7 @@ body {
 .app__link {
   display: inline-block;
   margin-top: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-meta);
   color: #93c5fd;
   text-decoration: underline;
 }
@@ -205,21 +264,10 @@ body {
   outline-offset: 2px;
 }
 
-/* ---- 3. Data: Last Foreground Message (데이터 블록만 박스) ---- */
-.app__data {
-  padding-top: 1.5rem;
-  border-top: 1px solid #334155;
-  margin-bottom: 1.5rem;
-}
-
-.app__data .app__heading--sub {
-  margin-bottom: 0.5rem;
-}
-
 .app__pre {
   margin: 0;
   padding: 1rem;
-  font-size: 0.75rem;
+  font-size: var(--font-size-caption);
   line-height: 1.45;
   color: #94a3b8;
   background: #0f172a;
@@ -231,7 +279,6 @@ body {
   word-break: break-all;
 }
 
-/* ---- 4. Utility: 디버그 (최소 비중, 카드 없음) ---- */
 .app__debug {
   padding-top: 1.25rem;
   border-top: 1px solid #1e293b;
@@ -239,8 +286,8 @@ body {
 
 .app__heading--utility {
   margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
   color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -255,8 +302,8 @@ body {
 
 .app__debug-toggle {
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
   color: #64748b;
   background: transparent;
   border: none;
@@ -284,7 +331,7 @@ body {
 
 .app__debug-line {
   margin: 0 0 0.25rem;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-meta);
 }
 
 .app__debug-label {
@@ -293,7 +340,7 @@ body {
 }
 
 .app__debug-value {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   color: #fbbf24;
 }
 
@@ -303,4 +350,34 @@ body {
 
 .app__debug-value[data-phase="오류"] {
   color: #fca5a5;
+}
+
+.app__debug-status {
+  margin-top: 0.5rem;
+  font-size: var(--font-size-meta);
+  color: #94a3b8;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.app__debug-status[data-state="success"] {
+  color: #86efac;
+}
+
+.app__debug-status[data-state="error"] {
+  color: #fca5a5;
+}
+
+.app__debug-block {
+  margin-top: 0.75rem;
+}
+
+.app__debug-block .app__debug-label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.app__debug-block .app__pre {
+  margin: 0;
+  max-height: 8rem;
 }
