@@ -19,7 +19,6 @@ function App() {
   const {
     canPrompt,
     triggerInstall,
-    isStandalone,
     isIOS,
     isInAppBrowser,
     showAddToHome,

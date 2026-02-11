@@ -18,14 +18,16 @@ function getOrCreateDeviceId(): string {
   return id;
 }
 
-/** 토큰에서 Firestore 문서 ID 생성. 같은 토큰은 항상 같은 문서로 매핑되어 중복 등록 방지. */
 async function tokenToDocId(token: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(token)
   );
   const arr = Array.from(new Uint8Array(buf));
-  return arr.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 64);
+  return arr
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 64);
 }
 
 const messagingScope = "/firebase-cloud-messaging-push-scope";
@@ -59,7 +61,7 @@ async function getMessagingServiceWorkerRegistration() {
   }
 
   const registration = await navigator.serviceWorker.register(messagingSwUrl, {
-    scope: messagingScope
+    scope: messagingScope,
   });
 
   // `navigator.serviceWorker.ready` can hang when SW scope does not control this page.
@@ -67,7 +69,7 @@ async function getMessagingServiceWorkerRegistration() {
   const activeWorker = await waitForActiveWorker(registration);
   activeWorker?.postMessage({
     type: "INIT_FIREBASE_CONFIG",
-    payload: firebaseConfig
+    payload: firebaseConfig,
   });
 
   return registration;
@@ -89,7 +91,7 @@ export async function requestPermissionAndToken() {
 
   return getToken(messaging, {
     vapidKey,
-    serviceWorkerRegistration: registration
+    serviceWorkerRegistration: registration,
   });
 }
 
@@ -109,7 +111,7 @@ export async function getTokenWhenPermissionGranted(): Promise<string | null> {
 
   return getToken(messaging, {
     vapidKey,
-    serviceWorkerRegistration: registration
+    serviceWorkerRegistration: registration,
   });
 }
 
