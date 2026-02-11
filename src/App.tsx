@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { MessagePayload } from "firebase/messaging";
 import {
+  getStoredRegistrationState,
+  getTokenWhenPermissionGranted,
   listenForegroundMessages,
   registerTokenToFirestore,
   requestPermissionAndToken,
@@ -16,11 +18,47 @@ function App() {
   const [statusState, setStatusState] = useState<StatusState>(undefined);
   const [phase, setPhase] = useState<string>("대기 중");
   const [isLoading, setIsLoading] = useState(false);
-  const [deviceName, setDeviceName] = useState("");
+  const [deviceName, setDeviceName] = useState(
+    () => getStoredRegistrationState()?.deviceName ?? ""
+  );
   const [lastMessage, setLastMessage] = useState<MessagePayload | null>(null);
   const [debugExpanded, setDebugExpanded] = useState(false);
   const { canPrompt, triggerInstall, isIOS, isInAppBrowser, showAddToHome } =
     useInstallPrompt();
+
+  useEffect(() => {
+    const stored = getStoredRegistrationState();
+    if (!stored || Notification.permission !== "granted") return;
+
+    let cancelled = false;
+    setPhase("확인 중");
+    setStatus("등록 상태 확인 중…");
+    setStatusState(undefined);
+
+    getTokenWhenPermissionGranted().then((token) => {
+      if (cancelled) return;
+      if (!token) {
+        setPhase("대기 중");
+        setStatus("장치명을 입력한 뒤 아래 버튼을 눌러 알림을 설정해 주세요.");
+        setStatusState(undefined);
+        return;
+      }
+      setDeviceName(stored.deviceName);
+      setPhase("완료");
+      setStatus(
+        "알림 권한이 허용되었고, FCM 토큰이 Firestore에 등록되었습니다."
+      );
+      setStatusState("success");
+    }).catch(() => {
+      if (cancelled) return;
+      setPhase("대기 중");
+      setStatus("장치명을 입력한 뒤 아래 버튼을 눌러 알림을 설정해 주세요.");
+      setStatusState(undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribePromise = listenForegroundMessages((payload) => {
@@ -44,7 +82,9 @@ function App() {
       ? "알림이 설정되었습니다. 이 기기로 푸시 알림을 받을 수 있습니다."
       : statusState === "error"
         ? status
-        : "장치명을 입력한 뒤 버튼을 눌러 주세요.";
+        : phase === "확인 중"
+          ? status
+          : "장치명을 입력한 뒤 버튼을 눌러 주세요.";
 
   const formattedMessage = useMemo(
     () =>
@@ -125,8 +165,9 @@ function App() {
               value={deviceName}
               onChange={(e) => setDeviceName(e.target.value)}
               placeholder="예: 홍길동의 iPhone"
-              disabled={isLoading}
+              disabled={isLoading || phase === "확인 중"}
               required
+              maxLength={100}
               className="app__device-name-input"
               aria-describedby="device-name-desc"
             />
@@ -135,12 +176,16 @@ function App() {
         <button
           type="button"
           onClick={handleEnableNotification}
-          disabled={isLoading}
+          disabled={isLoading || phase === "확인 중"}
           aria-label="알림 권한 요청 및 FCM 토큰 발급"
-          aria-busy={isLoading}
+          aria-busy={isLoading || phase === "확인 중"}
           className="app__primary-btn"
         >
-          {isLoading ? "권한 요청 중…" : "알림 권한 요청 및 토큰 발급"}
+          {phase === "확인 중"
+            ? "확인 중…"
+            : isLoading
+              ? "권한 요청 중…"
+              : "알림 권한 요청 및 토큰 발급"}
         </button>
       </section>
 

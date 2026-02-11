@@ -1,21 +1,88 @@
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  limit,
+  query,
+  setDoc,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 import { getToken, onMessage, type MessagePayload } from "firebase/messaging";
 import { db, firebaseConfig, getMessagingIfSupported } from "./firebase";
 
 const FCM_TOKENS_COLLECTION = "fcmTokens";
 const DEVICE_ID_KEY = "fcm_device_id";
+const FCM_REGISTRATION_KEY = "fcm_reg:v1";
+const MAX_DEVICE_NAME_LENGTH = 100;
 
-function getOrCreateDeviceId(): string {
-  let id = localStorage.getItem(DEVICE_ID_KEY);
-  if (!id && typeof crypto !== "undefined" && crypto.randomUUID) {
-    id = crypto.randomUUID();
-    localStorage.setItem(DEVICE_ID_KEY, id);
+export type StoredRegistration = { deviceName: string } | null;
+
+export function getOrCreateDeviceId(): string {
+  try {
+    let id = localStorage.getItem(DEVICE_ID_KEY);
+    if (!id && typeof crypto !== "undefined" && crypto.randomUUID) {
+      id = crypto.randomUUID();
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    if (!id) {
+      id = `device_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      localStorage.setItem(DEVICE_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    return `device_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
-  if (!id) {
-    id = `device_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    localStorage.setItem(DEVICE_ID_KEY, id);
+}
+
+export function saveRegistrationState(deviceName: string): void {
+  try {
+    localStorage.setItem(
+      FCM_REGISTRATION_KEY,
+      JSON.stringify({ deviceName: deviceName.trim() })
+    );
+  } catch {
+    // incognito or quota
   }
-  return id;
+}
+
+export function getStoredRegistrationState(): StoredRegistration {
+  try {
+    const raw = localStorage.getItem(FCM_REGISTRATION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as { deviceName?: string };
+    if (typeof data?.deviceName !== "string" || !data.deviceName.trim()) {
+      return null;
+    }
+    return { deviceName: data.deviceName.trim() };
+  } catch {
+    return null;
+  }
+}
+
+export function clearRegistrationState(): void {
+  try {
+    localStorage.removeItem(FCM_REGISTRATION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Firestore에서 해당 deviceId로 등록된 토큰이 있는지 확인.
+ * 현재 firestore.rules에서 fcmTokens 읽기가 허용되지 않으므로
+ * 이 함수는 권한 오류를 반환합니다. 읽기 허용(예: Auth 도입 후) 시 사용 가능.
+ */
+export async function isDeviceRegisteredInFirestore(
+  deviceId: string
+): Promise<boolean> {
+  const q = query(
+    collection(db, FCM_TOKENS_COLLECTION),
+    where("deviceId", "==", deviceId),
+    limit(1)
+  );
+  const snap = await getDocs(q);
+  return !snap.empty;
 }
 
 async function tokenToDocId(token: string): Promise<string> {
@@ -64,8 +131,6 @@ async function getMessagingServiceWorkerRegistration() {
     scope: messagingScope,
   });
 
-  // `navigator.serviceWorker.ready` can hang when SW scope does not control this page.
-  // We only need the FCM registration to become active.
   const activeWorker = await waitForActiveWorker(registration);
   activeWorker?.postMessage({
     type: "INIT_FIREBASE_CONFIG",
@@ -131,6 +196,9 @@ export async function registerTokenToFirestore(
   if (!name) {
     throw new Error("장치명은 필수입니다.");
   }
+  if (name.length > MAX_DEVICE_NAME_LENGTH) {
+    throw new Error(`장치명은 ${MAX_DEVICE_NAME_LENGTH}자 이하여야 합니다.`);
+  }
   await setDoc(
     doc(db, FCM_TOKENS_COLLECTION, docId),
     {
@@ -141,9 +209,9 @@ export async function registerTokenToFirestore(
     },
     { merge: true }
   );
+  saveRegistrationState(name);
 }
 
-/** 포그라운드 FCM 메시지 수신. 구독 해제 함수를 반환하며, 미지원 환경이면 null. */
 export async function listenForegroundMessages(
   callback: (payload: MessagePayload) => void
 ): Promise<(() => void) | null> {

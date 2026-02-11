@@ -4,6 +4,9 @@ service cloud.firestore {
     match /fcmTokens/{tokenId} {
       allow create, update: if request.resource.data.token is string
         && request.resource.data.deviceId is string
+        && request.resource.data.deviceName is string
+        && request.resource.data.deviceName.size() > 0
+        && request.resource.data.deviceName.size() <= 100
         && 'timestamp' in request.resource.data;
       allow read, delete: if false;
     }
