@@ -1,6 +1,20 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
+import { getFirestore } from "firebase/firestore";
 import { getMessaging, isSupported, type Messaging } from "firebase/messaging";
+
+const REQUIRED_ENV_KEYS = [
+  "VITE_FIREBASE_API_KEY",
+  "VITE_FIREBASE_PROJECT_ID",
+  "VITE_FIREBASE_APP_ID"
+] as const;
+
+if (import.meta.env.DEV) {
+  for (const key of REQUIRED_ENV_KEYS) {
+    if (!import.meta.env[key]) {
+      console.warn(`[Firebase] Missing env: ${key}`);
+    }
+  }
+}
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,12 +27,7 @@ const firebaseConfig = {
 };
 
 export const firebaseApp = initializeApp(firebaseConfig);
-export const analyticsPromise = isAnalyticsSupported().then((supported) => {
-  if (!supported) {
-    return null;
-  }
-  return getAnalytics(firebaseApp);
-});
+export const db = getFirestore(firebaseApp);
 
 let messagingPromise: Promise<Messaging | null> | null = null;
 

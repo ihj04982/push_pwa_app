@@ -29,7 +29,13 @@ npm run dev
 
 - Firebase Console > Cloud Messaging에서 Web Push 인증서(VAPID) 키를 생성
 - `.env`의 `VITE_FIREBASE_VAPID_KEY`에 입력
-- 앱에서 "알림 권한 요청 및 토큰 발급" 버튼 클릭 후 토큰 확인
+- 알림 권한을 허용하면 **FCM 토큰이 Firestore `fcmTokens` 컬렉션에 자동 등록**됩니다. (버튼 클릭으로도 권한 요청 및 등록 가능)
+
+### FCM 토큰 자동 등록 (Firestore)
+
+- 앱 로드 시 이미 알림 권한이 허용된 경우, 토큰을 발급해 Firestore에 자동 저장합니다.
+- 문서 ID는 디바이스별 고유 ID(`localStorage` 기반)이며, 필드는 `token`, `timestamp`입니다.
+- 규칙 배포: `firebase deploy --only firestore:rules`로 `firestore.rules`를 배포해야 클라이언트 쓰기가 허용됩니다.
 
 ### 백그라운드 알림
 
@@ -57,3 +63,6 @@ npm run dev
 - Firebase Messaging service worker는 `public/firebase-messaging-sw.js`를 사용합니다.
 - PWA 캐싱 service worker(`vite-plugin-pwa`)와 충돌을 피하기 위해
   FCM service worker는 별도 scope(`/firebase-cloud-messaging-push-scope`)로 등록합니다.
+- Firestore를 사용하려면 Firebase Console에서 Firestore 데이터베이스를 생성한 뒤,
+  프로젝트 연결(`firebase use <projectId>`, projectId는 `.env`의 `VITE_FIREBASE_PROJECT_ID`와 동일하게) 후
+  `firebase deploy --only firestore:rules`로 보안 규칙을 배포해야 합니다.

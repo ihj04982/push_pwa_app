@@ -1,5 +1,22 @@
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { getToken, onMessage, type MessagePayload } from "firebase/messaging";
-import { firebaseConfig, getMessagingIfSupported } from "./firebase";
+import { db, firebaseConfig, getMessagingIfSupported } from "./firebase";
+
+const FCM_TOKENS_COLLECTION = "fcmTokens";
+const DEVICE_ID_KEY = "fcm_device_id";
+
+function getOrCreateDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id && typeof crypto !== "undefined" && crypto.randomUUID) {
+    id = crypto.randomUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  if (!id) {
+    id = `device_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
 
 const messagingScope = "/firebase-cloud-messaging-push-scope";
 const messagingSwUrl = "/firebase-messaging-sw.js";
@@ -66,9 +83,40 @@ export async function requestPermissionAndToken() {
   });
 }
 
+/** 권한이 이미 허용된 경우에만 토큰을 반환. 권한 요청 팝업을 띄우지 않음. */
+export async function getTokenWhenPermissionGranted(): Promise<string | null> {
+  if (Notification.permission !== "granted") {
+    return null;
+  }
+
+  const messaging = await getMessagingIfSupported();
+  if (!messaging) {
+    return null;
+  }
+
+  const registration = await getMessagingServiceWorkerRegistration();
+  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+
+  return getToken(messaging, {
+    vapidKey,
+    serviceWorkerRegistration: registration
+  });
+}
+
+/** FCM 토큰을 Firestore fcmTokens 컬렉션에 자동 등록. */
+export async function registerTokenToFirestore(token: string): Promise<void> {
+  const deviceId = getOrCreateDeviceId();
+  await setDoc(
+    doc(db, FCM_TOKENS_COLLECTION, deviceId),
+    { token, timestamp: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+/** 포그라운드 FCM 메시지 수신. 구독 해제 함수를 반환하며, 미지원 환경이면 null. */
 export async function listenForegroundMessages(
   callback: (payload: MessagePayload) => void
-) {
+): Promise<(() => void) | null> {
   const messaging = await getMessagingIfSupported();
   if (!messaging) {
     return null;
