@@ -11,10 +11,31 @@ import { useInstallPrompt } from "./useInstallPrompt";
 
 type StatusState = "success" | "error" | undefined;
 
+type SendPushResult = {
+  success_count: number;
+  failure_count: number;
+  total: number;
+  message: string;
+};
+
+type LastApiRequest = { url: string; method: string; body: unknown };
+
+type LastApiResponse =
+  | { status: number; ok: boolean; data: unknown }
+  | { error: string };
+
+const DEFAULT_STATUS_MESSAGE =
+  "장치명을 입력한 뒤 아래 버튼을 눌러 알림을 설정해 주세요.";
+
+function formatApiResponseText(response: LastApiResponse): string {
+  if ("error" in response) return response.error;
+  const statusText = response.ok ? "OK" : "";
+  const dataJson = JSON.stringify(response.data, null, 2);
+  return `${response.status} ${statusText}\n${dataJson}`.trim();
+}
+
 function App() {
-  const [status, setStatus] = useState(
-    "장치명을 입력한 뒤 아래 버튼을 눌러 알림을 설정해 주세요."
-  );
+  const [status, setStatus] = useState(DEFAULT_STATUS_MESSAGE);
   const [statusState, setStatusState] = useState<StatusState>(undefined);
   const [phase, setPhase] = useState<string>("대기 중");
   const [isLoading, setIsLoading] = useState(false);
@@ -27,10 +48,10 @@ function App() {
   const [pushBody, setPushBody] = useState("");
   const [pushDeviceName, setPushDeviceName] = useState("");
   const [sendPushLoading, setSendPushLoading] = useState(false);
-  const [sendPushResult, setSendPushResult] = useState<
-    { success_count: number; failure_count: number; total: number; message: string } | null
-  >(null);
+  const [sendPushResult, setSendPushResult] = useState<SendPushResult | null>(null);
   const [sendPushError, setSendPushError] = useState<string | null>(null);
+  const [lastApiRequest, setLastApiRequest] = useState<LastApiRequest | null>(null);
+  const [lastApiResponse, setLastApiResponse] = useState<LastApiResponse | null>(null);
   const { canPrompt, triggerInstall, isIOS, isInAppBrowser, showAddToHome } =
     useInstallPrompt();
 
@@ -49,7 +70,7 @@ function App() {
       if (cancelled) return;
       if (!token) {
         setPhase("대기 중");
-        setStatus("장치명을 입력한 뒤 아래 버튼을 눌러 알림을 설정해 주세요.");
+        setStatus(DEFAULT_STATUS_MESSAGE);
         setStatusState(undefined);
         return;
       }
@@ -62,7 +83,7 @@ function App() {
     }).catch(() => {
       if (cancelled) return;
       setPhase("대기 중");
-      setStatus("장치명을 입력한 뒤 아래 버튼을 눌러 알림을 설정해 주세요.");
+      setStatus(DEFAULT_STATUS_MESSAGE);
       setStatusState(undefined);
     });
     return () => {
@@ -120,17 +141,26 @@ function App() {
     setSendPushError(null);
     setSendPushResult(null);
     setSendPushLoading(true);
+    const url = `${pushApiUrl.replace(/\/$/, "")}/api/send-push`;
+    const requestBody = {
+      title,
+      body,
+      ...(pushDeviceName.trim() ? { deviceName: pushDeviceName.trim() } : {}),
+    };
+    setLastApiRequest({ url, method: "POST", body: requestBody });
+    setLastApiResponse(null);
     try {
-      const res = await fetch(`${pushApiUrl.replace(/\/$/, "")}/api/send-push`, {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          body,
-          ...(pushDeviceName.trim() ? { deviceName: pushDeviceName.trim() } : {}),
-        }),
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json().catch(() => ({}));
+      setLastApiResponse({
+        status: res.status,
+        ok: res.ok,
+        data,
+      });
       if (!res.ok) {
         setSendPushError(data.detail ?? data.message ?? `요청 실패 (${res.status})`);
         return;
@@ -139,12 +169,13 @@ function App() {
         success_count: data.success_count ?? 0,
         failure_count: data.failure_count ?? 0,
         total: data.total ?? 0,
-        message: data.message ?? "발송 완료",
+        message: (data.message as string) ?? "발송 완료",
       });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "네트워크 오류가 발생했습니다.";
       setSendPushError(message);
+      setLastApiResponse({ error: message });
     } finally {
       setSendPushLoading(false);
     }
@@ -417,6 +448,34 @@ function App() {
           <div className="app__debug-block">
             <span className="app__debug-label">Last Foreground Message</span>
             <pre className="app__pre">{formattedMessage}</pre>
+          </div>
+          <div className="app__debug-block">
+            <span className="app__debug-label">푸시 API 요청 결과</span>
+            {lastApiRequest && (
+              <>
+                <p className="app__debug-line">
+                  <span className="app__debug-label">Request</span>
+                </p>
+                <pre className="app__pre">
+                  {lastApiRequest.method} {lastApiRequest.url}
+                  {"\n"}
+                  {JSON.stringify(lastApiRequest.body, null, 2)}
+                </pre>
+              </>
+            )}
+            {lastApiResponse && (
+              <>
+                <p className="app__debug-line">
+                  <span className="app__debug-label">Response</span>
+                </p>
+                <pre className="app__pre">
+                  {formatApiResponseText(lastApiResponse)}
+                </pre>
+              </>
+            )}
+            {!lastApiRequest && !lastApiResponse && (
+              <p className="app__debug-line">아직 푸시 API 요청이 없습니다.</p>
+            )}
           </div>
         </div>
       </section>
