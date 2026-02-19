@@ -167,6 +167,11 @@ body {
   cursor: not-allowed;
 }
 
+textarea.app__device-name-input {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
 .app__primary-btn {
   display: inline-block;
   padding: 0.75rem 1.5rem;

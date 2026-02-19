@@ -23,8 +23,18 @@ function App() {
   );
   const [lastMessage, setLastMessage] = useState<MessagePayload | null>(null);
   const [debugExpanded, setDebugExpanded] = useState(false);
+  const [pushTitle, setPushTitle] = useState("");
+  const [pushBody, setPushBody] = useState("");
+  const [pushDeviceName, setPushDeviceName] = useState("");
+  const [sendPushLoading, setSendPushLoading] = useState(false);
+  const [sendPushResult, setSendPushResult] = useState<
+    { success_count: number; failure_count: number; total: number; message: string } | null
+  >(null);
+  const [sendPushError, setSendPushError] = useState<string | null>(null);
   const { canPrompt, triggerInstall, isIOS, isInAppBrowser, showAddToHome } =
     useInstallPrompt();
+
+  const pushApiUrl = import.meta.env.VITE_PUSH_API_URL?.trim() ?? "";
 
   useEffect(() => {
     const stored = getStoredRegistrationState();
@@ -93,6 +103,52 @@ function App() {
         : "아직 수신된 알림이 없습니다.",
     [lastMessage]
   );
+
+  const handleSendPush = async () => {
+    const title = pushTitle.trim();
+    const body = pushBody.trim();
+    if (!title || !body) {
+      setSendPushError("제목과 본문을 입력해 주세요.");
+      setSendPushResult(null);
+      return;
+    }
+    if (!pushApiUrl) {
+      setSendPushError("VITE_PUSH_API_URL이 설정되지 않았습니다. (ngrok 또는 BE URL)");
+      setSendPushResult(null);
+      return;
+    }
+    setSendPushError(null);
+    setSendPushResult(null);
+    setSendPushLoading(true);
+    try {
+      const res = await fetch(`${pushApiUrl.replace(/\/$/, "")}/api/send-push`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          body,
+          ...(pushDeviceName.trim() ? { deviceName: pushDeviceName.trim() } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSendPushError(data.detail ?? data.message ?? `요청 실패 (${res.status})`);
+        return;
+      }
+      setSendPushResult({
+        success_count: data.success_count ?? 0,
+        failure_count: data.failure_count ?? 0,
+        total: data.total ?? 0,
+        message: data.message ?? "발송 완료",
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "네트워크 오류가 발생했습니다.";
+      setSendPushError(message);
+    } finally {
+      setSendPushLoading(false);
+    }
+  };
 
   const handleEnableNotification = async () => {
     const trimmed = deviceName.trim();
@@ -186,6 +242,86 @@ function App() {
             : isLoading
               ? "권한 요청 중…"
               : "알림 권한 요청 및 토큰 발급"}
+        </button>
+      </section>
+
+      <section
+        className="app__secondary"
+        aria-labelledby="send-push-heading"
+      >
+        <h2 id="send-push-heading" className="app__heading--sub">
+          알림 보내기
+        </h2>
+        <p id="send-push-desc" className="app__primary-hint">
+          제목과 본문을 입력한 뒤 푸시 보내기를 누르면, DB에 등록된 기기(들)로 알림이 발송됩니다. 장치명을 입력하면 해당 기기로만 보냅니다.
+        </p>
+        <div className="app__primary-form">
+          <div className="app__device-name-wrap">
+            <label htmlFor="push-title" className="app__device-name-label">
+              제목 <span className="app__required" aria-hidden="true">*</span>
+            </label>
+            <input
+              id="push-title"
+              type="text"
+              value={pushTitle}
+              onChange={(e) => setPushTitle(e.target.value)}
+              placeholder="알림 제목"
+              disabled={sendPushLoading}
+              maxLength={200}
+              className="app__device-name-input"
+              aria-describedby="send-push-desc"
+            />
+          </div>
+          <div className="app__device-name-wrap">
+            <label htmlFor="push-body" className="app__device-name-label">
+              본문 <span className="app__required" aria-hidden="true">*</span>
+            </label>
+            <textarea
+              id="push-body"
+              value={pushBody}
+              onChange={(e) => setPushBody(e.target.value)}
+              placeholder="알림 본문"
+              disabled={sendPushLoading}
+              maxLength={1000}
+              rows={3}
+              className="app__device-name-input"
+            />
+          </div>
+          <div className="app__device-name-wrap">
+            <label htmlFor="push-device-name" className="app__device-name-label">
+              장치명 (선택)
+            </label>
+            <input
+              id="push-device-name"
+              type="text"
+              value={pushDeviceName}
+              onChange={(e) => setPushDeviceName(e.target.value)}
+              placeholder="비우면 전체 기기로 발송"
+              disabled={sendPushLoading}
+              maxLength={100}
+              className="app__device-name-input"
+            />
+          </div>
+        </div>
+        {sendPushError && (
+          <p className="app__status app__status--primary" data-state="error" aria-live="polite">
+            {sendPushError}
+          </p>
+        )}
+        {sendPushResult && (
+          <p className="app__status app__status--primary" data-state="success" aria-live="polite">
+            {sendPushResult.message}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={handleSendPush}
+          disabled={sendPushLoading || !pushApiUrl}
+          aria-label="푸시 알림 보내기"
+          aria-busy={sendPushLoading}
+          className="app__secondary-btn"
+        >
+          {sendPushLoading ? "발송 중…" : "푸시 보내기"}
         </button>
       </section>
 
