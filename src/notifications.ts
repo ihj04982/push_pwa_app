@@ -1,13 +1,4 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  query,
-  setDoc,
-  serverTimestamp,
-  where,
-} from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { getToken, onMessage, type MessagePayload } from "firebase/messaging";
 import { db, firebaseConfig, getMessagingIfSupported } from "./firebase";
 
@@ -18,7 +9,7 @@ const MAX_DEVICE_NAME_LENGTH = 100;
 
 export type StoredRegistration = { deviceName: string } | null;
 
-export function getOrCreateDeviceId(): string {
+function getOrCreateDeviceId(): string {
   try {
     let id = localStorage.getItem(DEVICE_ID_KEY);
     if (!id && typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -35,7 +26,7 @@ export function getOrCreateDeviceId(): string {
   }
 }
 
-export function saveRegistrationState(deviceName: string): void {
+function saveRegistrationState(deviceName: string): void {
   try {
     localStorage.setItem(
       FCM_REGISTRATION_KEY,
@@ -58,31 +49,6 @@ export function getStoredRegistrationState(): StoredRegistration {
   } catch {
     return null;
   }
-}
-
-export function clearRegistrationState(): void {
-  try {
-    localStorage.removeItem(FCM_REGISTRATION_KEY);
-  } catch {
-    // ignore
-  }
-}
-
-/**
- * Firestore에서 해당 deviceId로 등록된 토큰이 있는지 확인.
- * 현재 firestore.rules에서 fcmTokens 읽기가 허용되지 않으므로
- * 이 함수는 권한 오류를 반환합니다. 읽기 허용(예: Auth 도입 후) 시 사용 가능.
- */
-export async function isDeviceRegisteredInFirestore(
-  deviceId: string
-): Promise<boolean> {
-  const q = query(
-    collection(db, FCM_TOKENS_COLLECTION),
-    where("deviceId", "==", deviceId),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  return !snap.empty;
 }
 
 async function tokenToDocId(token: string): Promise<string> {
