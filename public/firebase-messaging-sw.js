@@ -15,7 +15,7 @@ function initializeFirebase(config) {
   firebase.initializeApp(config);
   messaging = firebase.messaging();
   messaging.onBackgroundMessage((payload) => {
-    const title = payload?.notification?.title || "Push PWA App";
+    const title = payload?.notification?.title || "피스피킹 솔루션 원격 제어";
     const options = {
       body: payload?.notification?.body || "새 알림을 받았습니다.",
       icon: "/icons/pwa-192x192.png",

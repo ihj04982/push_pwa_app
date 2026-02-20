@@ -7,7 +7,6 @@ import {
   registerTokenToFirestore,
   requestPermissionAndToken,
 } from "./notifications";
-import { useInstallPrompt } from "./useInstallPrompt";
 
 type StatusState = "success" | "error" | undefined;
 
@@ -24,6 +23,12 @@ type LastApiResponse =
   | { status: number; ok: boolean; data: unknown }
   | { error: string };
 
+type LastRobotRequest = { url: string; method: string; action: "start" | "stop" };
+
+type LastRobotResponse =
+  | { status: number; ok: boolean; data?: unknown }
+  | { error: string };
+
 const DEFAULT_STATUS_MESSAGE =
   "장치명을 입력한 뒤 아래 버튼을 눌러 알림을 설정해 주세요.";
 
@@ -32,6 +37,16 @@ function formatApiResponseText(response: LastApiResponse): string {
   const statusText = response.ok ? "OK" : "";
   const dataJson = JSON.stringify(response.data, null, 2);
   return `${response.status} ${statusText}\n${dataJson}`.trim();
+}
+
+function formatRobotResponseText(response: LastRobotResponse): string {
+  if ("error" in response) return response.error;
+  const statusText = response.ok ? "OK" : "";
+  const dataPart =
+    response.data !== undefined
+      ? `\n${JSON.stringify(response.data, null, 2)}`
+      : "";
+  return `${response.status} ${statusText}${dataPart}`.trim();
 }
 
 function App() {
@@ -54,9 +69,11 @@ function App() {
   const [lastApiResponse, setLastApiResponse] = useState<LastApiResponse | null>(null);
   const [robotLoading, setRobotLoading] = useState<"start" | "stop" | null>(null);
   const [robotMessage, setRobotMessage] = useState<string | null>(null);
-  const { canPrompt, triggerInstall, isIOS, isInAppBrowser, showAddToHome } =
-    useInstallPrompt();
-  const [activeTab, setActiveTab] = useState<"register" | "send" | "robot">("register");
+  const [lastRobotRequest, setLastRobotRequest] =
+    useState<LastRobotRequest | null>(null);
+  const [lastRobotResponse, setLastRobotResponse] =
+    useState<LastRobotResponse | null>(null);
+  const [activeTab, setActiveTab] = useState<"register" | "send" | "robot">("robot");
 
   const pushApiUrl = import.meta.env.VITE_PUSH_API_URL?.trim() ?? "";
 
@@ -191,14 +208,26 @@ function App() {
     }
     setRobotMessage(null);
     setRobotLoading("start");
+    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/start`;
+    setLastRobotRequest({ url, method: "POST", action: "start" });
+    setLastRobotResponse(null);
     try {
-      const res = await fetch(`${pushApiUrl.replace(/\/$/, "")}/robot/start`, {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
+      const data = await res.json().catch(() => ({}));
+      setLastRobotResponse({
+        status: res.status,
+        ok: res.ok,
+        data: Object.keys(data).length > 0 ? data : undefined,
+      });
       setRobotMessage(res.ok ? "로봇 시작 요청을 보냈습니다." : `요청 실패 (${res.status})`);
     } catch (err) {
-      setRobotMessage(err instanceof Error ? err.message : "네트워크 오류");
+      const message =
+        err instanceof Error ? err.message : "네트워크 오류";
+      setRobotMessage(message);
+      setLastRobotResponse({ error: message });
     } finally {
       setRobotLoading(null);
     }
@@ -211,14 +240,26 @@ function App() {
     }
     setRobotMessage(null);
     setRobotLoading("stop");
+    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/stop`;
+    setLastRobotRequest({ url, method: "POST", action: "stop" });
+    setLastRobotResponse(null);
     try {
-      const res = await fetch(`${pushApiUrl.replace(/\/$/, "")}/robot/stop`, {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
+      const data = await res.json().catch(() => ({}));
+      setLastRobotResponse({
+        status: res.status,
+        ok: res.ok,
+        data: Object.keys(data).length > 0 ? data : undefined,
+      });
       setRobotMessage(res.ok ? "로봇 정지 요청을 보냈습니다." : `요청 실패 (${res.status})`);
     } catch (err) {
-      setRobotMessage(err instanceof Error ? err.message : "네트워크 오류");
+      const message =
+        err instanceof Error ? err.message : "네트워크 오류";
+      setRobotMessage(message);
+      setLastRobotResponse({ error: message });
     } finally {
       setRobotLoading(null);
     }
@@ -267,14 +308,14 @@ function App() {
   };
 
   const tabs = [
+    { id: "robot" as const, label: "로봇 제어", panelId: "panel-robot" },
     { id: "register" as const, label: "알림 설정", panelId: "panel-register" },
     { id: "send" as const, label: "푸시 보내기", panelId: "panel-send" },
-    { id: "robot" as const, label: "로봇 제어", panelId: "panel-robot" },
   ];
 
   return (
     <main id="main-content" className="app">
-      <h1 className="app__title">Push PWA App</h1>
+      <h1 className="app__title">피스피킹 솔루션 원격 제어</h1>
 
       <div role="tablist" aria-label="기능 선택" className="app__tablist">
         {tabs.map(({ id, label, panelId }) => (
@@ -304,16 +345,9 @@ function App() {
             <h2 id="main-cta-heading" className="visually-hidden">
               알림 설정
             </h2>
-            <p
-              className="app__status app__status--primary"
-              aria-live="polite"
-              data-state={statusState}
-            >
-              {primaryMessage}
-            </p>
             <div className="app__primary-form">
               <p id="device-name-desc" className="app__primary-hint">
-                Firestore에서 기기를 구분할 수 있는 이름을 입력한 뒤 버튼을 눌러 주세요.
+                푸시 알림을 받기 위해 이 기기를 구분할 장치명을 입력한 뒤 버튼을 눌러 주세요.
               </p>
               <div className="app__device-name-wrap">
                 <label htmlFor="device-name" className="app__device-name-label">
@@ -348,6 +382,14 @@ function App() {
                   ? "권한 요청 중…"
                   : "알림 권한 요청 및 토큰 발급"}
             </button>
+            <div className="app__feedback" aria-live="polite">
+              <p
+                className="app__status app__status--primary"
+                data-state={statusState}
+              >
+                {primaryMessage}
+              </p>
+            </div>
           </section>
         )}
 
@@ -362,7 +404,7 @@ function App() {
               알림 보내기
             </h2>
             <p id="send-push-desc" className="app__primary-hint">
-              제목과 본문을 입력한 뒤 푸시 보내기를 누르면, DB에 등록된 기기(들)로 알림이 발송됩니다. 장치명을 입력하면 해당 기기로만 보냅니다.
+              푸시 알림을 보내려면 제목과 본문을 입력한 뒤 푸시 보내기를 누르세요. 알림을 설정한 기기(들)로 발송되며, 장치명을 입력하면 해당 기기로만 보냅니다.
             </p>
             <div className="app__primary-form">
               <div className="app__device-name-wrap">
@@ -412,16 +454,6 @@ function App() {
                 />
               </div>
             </div>
-            {sendPushError && (
-              <p className="app__status app__status--primary" data-state="error" aria-live="polite">
-                {sendPushError}
-              </p>
-            )}
-            {sendPushResult && (
-              <p className="app__status app__status--primary" data-state="success" aria-live="polite">
-                {sendPushResult.message}
-              </p>
-            )}
             <button
               type="button"
               onClick={handleSendPush}
@@ -433,6 +465,16 @@ function App() {
             >
               {sendPushLoading ? "발송 중…" : "푸시 보내기"}
             </button>
+            {(sendPushError || sendPushResult) && (
+              <div className="app__feedback" aria-live="polite">
+                <p
+                  className="app__status app__status--primary"
+                  data-state={sendPushError ? "error" : "success"}
+                >
+                  {sendPushError ?? sendPushResult?.message}
+                </p>
+              </div>
+            )}
           </section>
         )}
 
@@ -474,75 +516,39 @@ function App() {
               </button>
             </div>
             {robotMessage && (
-              <p className="app__status app__status--primary" aria-live="polite" style={{ marginTop: "0.5rem" }}>
-                {robotMessage}
-              </p>
+              <div className="app__feedback" aria-live="polite">
+                <p
+                  className="app__status app__status--primary"
+                  data-state={
+                    lastRobotResponse
+                      ? "error" in lastRobotResponse || !lastRobotResponse.ok
+                        ? "error"
+                        : "success"
+                      : undefined
+                  }
+                >
+                  {robotMessage}
+                </p>
+              </div>
             )}
           </section>
         )}
       </div>
-
-      {showAddToHome && (
-        <section
-          className="app__secondary"
-          aria-labelledby="add-to-home-heading"
-        >
-          <h2 id="add-to-home-heading" className="app__heading--sub">
-            홈 화면에 추가
-          </h2>
-          {canPrompt ? (
-            <button
-              type="button"
-              onClick={triggerInstall}
-              className="app__secondary-btn"
-              aria-label="홈 화면에 앱 추가"
-            >
-              홈 화면에 추가
-            </button>
-          ) : isIOS ? (
-            <div className="app__guide">
-              {isInAppBrowser ? (
-                <>
-                  <p>
-                    홈 화면에 추가는 Safari에서만 가능합니다. 링크를 길게 눌러{" "}
-                    <strong>Safari에서 열기</strong>를 선택한 뒤, Safari에서{" "}
-                    <strong>더 보기(⋯)</strong>를 누르고{" "}
-                    <strong>공유(↑)</strong> 버튼에서{" "}
-                    <strong>홈 화면에 추가</strong>를 선택해 주세요.
-                  </p>
-                  <a
-                    href={window.location.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="app__link"
-                  >
-                    이 페이지를 Safari에서 열기
-                  </a>
-                </>
-              ) : (
-                <p>
-                  <strong>더 보기(⋯)</strong>를 누른 뒤{" "}
-                  <strong>공유(↑)</strong> 버튼에서{" "}
-                  <strong>홈 화면에 추가</strong>를 선택해 주세요.
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="app__guide">
-              브라우저 <strong>메뉴(⋮)</strong>에서{" "}
-              <strong>홈 화면에 추가</strong> 또는 <strong>앱 설치</strong>를
-              선택해 주세요.
-            </p>
-          )}
-        </section>
-      )}
 
       <section
         className={`app__debug ${debugExpanded ? "" : "app__debug--collapsed"}`}
         aria-live={debugExpanded ? "polite" : undefined}
       >
         <div className="app__debug-header">
-          <h2 className="app__heading--utility">디버그</h2>
+          <h2 className="app__heading--utility">
+            디버그
+            {debugExpanded && (
+              <span className="app__debug-tab-badge" aria-hidden="true">
+                {" "}
+                ({activeTab === "register" ? "알림 설정" : activeTab === "send" ? "푸시 보내기" : "로봇 제어"})
+              </span>
+            )}
+          </h2>
           <button
             type="button"
             onClick={() => setDebugExpanded((prev) => !prev)}
@@ -561,48 +567,85 @@ function App() {
           id="debug-status-content"
           className="app__debug-content"
           hidden={!debugExpanded}
+          aria-label={`${activeTab === "register" ? "알림 설정" : activeTab === "send" ? "푸시 보내기" : "로봇 제어"} 탭 디버그 정보`}
         >
-          <p className="app__debug-line">
-            <span className="app__debug-label">단계</span>
-            <span className="app__debug-value" data-phase={phase}>
-              {phase}
-            </span>
-          </p>
-          <p className="app__debug-line app__debug-status" data-state={statusState}>
-            {status}
-          </p>
-          <div className="app__debug-block">
-            <span className="app__debug-label">Last Foreground Message</span>
-            <pre className="app__pre">{formattedMessage}</pre>
-          </div>
-          <div className="app__debug-block">
-            <span className="app__debug-label">푸시 API 요청 결과</span>
-            {lastApiRequest && (
-              <>
-                <p className="app__debug-line">
-                  <span className="app__debug-label">Request</span>
-                </p>
-                <pre className="app__pre">
-                  {lastApiRequest.method} {lastApiRequest.url}
-                  {"\n"}
-                  {JSON.stringify(lastApiRequest.body, null, 2)}
-                </pre>
-              </>
-            )}
-            {lastApiResponse && (
-              <>
-                <p className="app__debug-line">
-                  <span className="app__debug-label">Response</span>
-                </p>
-                <pre className="app__pre">
-                  {formatApiResponseText(lastApiResponse)}
-                </pre>
-              </>
-            )}
-            {!lastApiRequest && !lastApiResponse && (
-              <p className="app__debug-line">아직 푸시 API 요청이 없습니다.</p>
-            )}
-          </div>
+          {activeTab === "register" && (
+            <>
+              <p className="app__debug-line">
+                <span className="app__debug-label">단계</span>
+                <span className="app__debug-value" data-phase={phase}>
+                  {phase}
+                </span>
+              </p>
+              <p className="app__debug-line app__debug-status" data-state={statusState}>
+                {status}
+              </p>
+              <div className="app__debug-block">
+                <span className="app__debug-label">Last Foreground Message</span>
+                <pre className="app__pre">{formattedMessage}</pre>
+              </div>
+            </>
+          )}
+          {activeTab === "send" && (
+            <div className="app__debug-block">
+              <span className="app__debug-label">푸시 API 요청 결과</span>
+              {lastApiRequest && (
+                <>
+                  <p className="app__debug-line">
+                    <span className="app__debug-label">Request</span>
+                  </p>
+                  <pre className="app__pre">
+                    {lastApiRequest.method} {lastApiRequest.url}
+                    {"\n"}
+                    {JSON.stringify(lastApiRequest.body, null, 2)}
+                  </pre>
+                </>
+              )}
+              {lastApiResponse && (
+                <>
+                  <p className="app__debug-line">
+                    <span className="app__debug-label">Response</span>
+                  </p>
+                  <pre className="app__pre">
+                    {formatApiResponseText(lastApiResponse)}
+                  </pre>
+                </>
+              )}
+              {!lastApiRequest && !lastApiResponse && (
+                <p className="app__debug-line">아직 푸시 API 요청이 없습니다.</p>
+              )}
+            </div>
+          )}
+          {activeTab === "robot" && (
+            <div className="app__debug-block">
+              <span className="app__debug-label">로봇 API 요청 결과</span>
+              {lastRobotRequest && (
+                <>
+                  <p className="app__debug-line">
+                    <span className="app__debug-label">Request</span>
+                  </p>
+                  <pre className="app__pre">
+                    {lastRobotRequest.method} {lastRobotRequest.url}
+                    {"\n"}
+                    {JSON.stringify({ action: lastRobotRequest.action }, null, 2)}
+                  </pre>
+                </>
+              )}
+              {lastRobotResponse && (
+                <>
+                  <p className="app__debug-line">
+                    <span className="app__debug-label">Response</span>
+                  </p>
+                  <pre className="app__pre">
+                    {formatRobotResponseText(lastRobotResponse)}
+                  </pre>
+                </>
+              )}
+              {!lastRobotRequest && !lastRobotResponse && (
+                <p className="app__debug-line">아직 로봇 API 요청이 없습니다.</p>
+              )}
+            </div>
+          )}
         </div>
       </section>
     </main>

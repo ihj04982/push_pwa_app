@@ -113,6 +113,7 @@ body {
 
 .app__tabpanel {
   min-height: 200px;
+  margin-bottom: 1.5rem;
 }
 
 .app__primary {
@@ -128,6 +129,16 @@ body {
 
 .app__primary .app__status--primary {
   margin-bottom: 1rem;
+}
+
+/* 통일된 안내 메시지 영역: 각 탭에서 버튼 아래 동일 위치/스타일 */
+.app__feedback {
+  margin-top: 1rem;
+  min-height: 1.5em;
+}
+
+.app__feedback .app__status {
+  margin-bottom: 0;
 }
 
 .app__status[data-state="success"] {

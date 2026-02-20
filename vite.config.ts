@@ -9,7 +9,7 @@ export default defineConfig({
             registerType: "autoUpdate",
             includeAssets: [],
             manifest: {
-                name: "Push PWA App",
+                name: "피스피킹 솔루션 원격 제어",
                 short_name: "PushPWA",
                 description: "React + Firebase push-enabled PWA",
                 theme_color: "#f8fafc",
