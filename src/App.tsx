@@ -56,6 +56,7 @@ function App() {
   const [robotMessage, setRobotMessage] = useState<string | null>(null);
   const { canPrompt, triggerInstall, isIOS, isInAppBrowser, showAddToHome } =
     useInstallPrompt();
+  const [activeTab, setActiveTab] = useState<"register" | "send" | "robot">("register");
 
   const pushApiUrl = import.meta.env.VITE_PUSH_API_URL?.trim() ?? "";
 
@@ -265,177 +266,221 @@ function App() {
     }
   };
 
+  const tabs = [
+    { id: "register" as const, label: "알림 설정", panelId: "panel-register" },
+    { id: "send" as const, label: "푸시 보내기", panelId: "panel-send" },
+    { id: "robot" as const, label: "로봇 제어", panelId: "panel-robot" },
+  ];
+
   return (
     <main id="main-content" className="app">
       <h1 className="app__title">Push PWA App</h1>
 
-      <section className="app__primary" aria-labelledby="main-cta-heading">
-        <h2 id="main-cta-heading" className="visually-hidden">
-          알림 설정
-        </h2>
-        <p
-          className="app__status app__status--primary"
-          aria-live="polite"
-          data-state={statusState}
-        >
-          {primaryMessage}
-        </p>
-        <div className="app__primary-form">
-          <p id="device-name-desc" className="app__primary-hint">
-            Firestore에서 기기를 구분할 수 있는 이름을 입력한 뒤 버튼을 눌러 주세요.
-          </p>
-          <div className="app__device-name-wrap">
-            <label htmlFor="device-name" className="app__device-name-label">
-              장치명 <span className="app__required" aria-hidden="true">*</span>
-            </label>
-            <input
-              id="device-name"
-              type="text"
-              value={deviceName}
-              onChange={(e) => setDeviceName(e.target.value)}
-              placeholder="예: 홍길동의 iPhone"
+      <div role="tablist" aria-label="기능 선택" className="app__tablist">
+        {tabs.map(({ id, label, panelId }) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={activeTab === id}
+            aria-controls={panelId}
+            id={`tab-${id}`}
+            type="button"
+            className={`app__tab ${activeTab === id ? "app__tab--active" : ""}`}
+            onClick={() => setActiveTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="app__tabpanel">
+        {activeTab === "register" && (
+          <section
+            role="tabpanel"
+            id="panel-register"
+            aria-labelledby="tab-register"
+            className="app__primary"
+          >
+            <h2 id="main-cta-heading" className="visually-hidden">
+              알림 설정
+            </h2>
+            <p
+              className="app__status app__status--primary"
+              aria-live="polite"
+              data-state={statusState}
+            >
+              {primaryMessage}
+            </p>
+            <div className="app__primary-form">
+              <p id="device-name-desc" className="app__primary-hint">
+                Firestore에서 기기를 구분할 수 있는 이름을 입력한 뒤 버튼을 눌러 주세요.
+              </p>
+              <div className="app__device-name-wrap">
+                <label htmlFor="device-name" className="app__device-name-label">
+                  장치명 <span className="app__required" aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="device-name"
+                  type="text"
+                  value={deviceName}
+                  onChange={(e) => setDeviceName(e.target.value)}
+                  placeholder="예: 홍길동의 iPhone"
+                  disabled={isLoading || phase === "확인 중"}
+                  required
+                  maxLength={100}
+                  className="app__device-name-input"
+                  aria-describedby="device-name-desc"
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleEnableNotification}
               disabled={isLoading || phase === "확인 중"}
-              required
-              maxLength={100}
-              className="app__device-name-input"
-              aria-describedby="device-name-desc"
-            />
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleEnableNotification}
-          disabled={isLoading || phase === "확인 중"}
-          aria-label="알림 권한 요청 및 FCM 토큰 발급"
-          aria-busy={isLoading || phase === "확인 중"}
-          className="app__primary-btn"
-        >
-          {phase === "확인 중"
-            ? "확인 중…"
-            : isLoading
-              ? "권한 요청 중…"
-              : "알림 권한 요청 및 토큰 발급"}
-        </button>
-      </section>
+              aria-label="알림 권한 요청 및 FCM 토큰 발급"
+              aria-busy={isLoading || phase === "확인 중"}
+              className="app__primary-btn"
+              style={{ width: "100%" }}
+            >
+              {phase === "확인 중"
+                ? "확인 중…"
+                : isLoading
+                  ? "권한 요청 중…"
+                  : "알림 권한 요청 및 토큰 발급"}
+            </button>
+          </section>
+        )}
 
-      <section
-        className="app__secondary"
-        aria-labelledby="send-push-heading"
-      >
-        <h2 id="send-push-heading" className="app__heading--sub">
-          알림 보내기
-        </h2>
-        <p id="send-push-desc" className="app__primary-hint">
-          제목과 본문을 입력한 뒤 푸시 보내기를 누르면, DB에 등록된 기기(들)로 알림이 발송됩니다. 장치명을 입력하면 해당 기기로만 보냅니다.
-        </p>
-        <div className="app__primary-form">
-          <div className="app__device-name-wrap">
-            <label htmlFor="push-title" className="app__device-name-label">
-              제목 <span className="app__required" aria-hidden="true">*</span>
-            </label>
-            <input
-              id="push-title"
-              type="text"
-              value={pushTitle}
-              onChange={(e) => setPushTitle(e.target.value)}
-              placeholder="알림 제목"
-              disabled={sendPushLoading}
-              maxLength={200}
-              className="app__device-name-input"
-              aria-describedby="send-push-desc"
-            />
-          </div>
-          <div className="app__device-name-wrap">
-            <label htmlFor="push-body" className="app__device-name-label">
-              본문 <span className="app__required" aria-hidden="true">*</span>
-            </label>
-            <textarea
-              id="push-body"
-              value={pushBody}
-              onChange={(e) => setPushBody(e.target.value)}
-              placeholder="알림 본문"
-              disabled={sendPushLoading}
-              maxLength={1000}
-              rows={3}
-              className="app__device-name-input"
-            />
-          </div>
-          <div className="app__device-name-wrap">
-            <label htmlFor="push-device-name" className="app__device-name-label">
-              장치명 (선택)
-            </label>
-            <input
-              id="push-device-name"
-              type="text"
-              value={pushDeviceName}
-              onChange={(e) => setPushDeviceName(e.target.value)}
-              placeholder="비우면 전체 기기로 발송"
-              disabled={sendPushLoading}
-              maxLength={100}
-              className="app__device-name-input"
-            />
-          </div>
-        </div>
-        {sendPushError && (
-          <p className="app__status app__status--primary" data-state="error" aria-live="polite">
-            {sendPushError}
-          </p>
+        {activeTab === "send" && (
+          <section
+            role="tabpanel"
+            id="panel-send"
+            aria-labelledby="tab-send"
+            className="app__primary"
+          >
+            <h2 id="send-push-heading" className="visually-hidden">
+              알림 보내기
+            </h2>
+            <p id="send-push-desc" className="app__primary-hint">
+              제목과 본문을 입력한 뒤 푸시 보내기를 누르면, DB에 등록된 기기(들)로 알림이 발송됩니다. 장치명을 입력하면 해당 기기로만 보냅니다.
+            </p>
+            <div className="app__primary-form">
+              <div className="app__device-name-wrap">
+                <label htmlFor="push-title" className="app__device-name-label">
+                  제목 <span className="app__required" aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="push-title"
+                  type="text"
+                  value={pushTitle}
+                  onChange={(e) => setPushTitle(e.target.value)}
+                  placeholder="알림 제목"
+                  disabled={sendPushLoading}
+                  maxLength={200}
+                  className="app__device-name-input"
+                  aria-describedby="send-push-desc"
+                />
+              </div>
+              <div className="app__device-name-wrap">
+                <label htmlFor="push-body" className="app__device-name-label">
+                  본문 <span className="app__required" aria-hidden="true">*</span>
+                </label>
+                <textarea
+                  id="push-body"
+                  value={pushBody}
+                  onChange={(e) => setPushBody(e.target.value)}
+                  placeholder="알림 본문"
+                  disabled={sendPushLoading}
+                  maxLength={1000}
+                  rows={3}
+                  className="app__device-name-input"
+                />
+              </div>
+              <div className="app__device-name-wrap">
+                <label htmlFor="push-device-name" className="app__device-name-label">
+                  장치명 (선택)
+                </label>
+                <input
+                  id="push-device-name"
+                  type="text"
+                  value={pushDeviceName}
+                  onChange={(e) => setPushDeviceName(e.target.value)}
+                  placeholder="비우면 전체 기기로 발송"
+                  disabled={sendPushLoading}
+                  maxLength={100}
+                  className="app__device-name-input"
+                />
+              </div>
+            </div>
+            {sendPushError && (
+              <p className="app__status app__status--primary" data-state="error" aria-live="polite">
+                {sendPushError}
+              </p>
+            )}
+            {sendPushResult && (
+              <p className="app__status app__status--primary" data-state="success" aria-live="polite">
+                {sendPushResult.message}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleSendPush}
+              disabled={sendPushLoading || !pushApiUrl}
+              aria-label="푸시 알림 보내기"
+              aria-busy={sendPushLoading}
+              className="app__primary-btn"
+              style={{ width: "100%" }}
+            >
+              {sendPushLoading ? "발송 중…" : "푸시 보내기"}
+            </button>
+          </section>
         )}
-        {sendPushResult && (
-          <p className="app__status app__status--primary" data-state="success" aria-live="polite">
-            {sendPushResult.message}
-          </p>
-        )}
-        <button
-          type="button"
-          onClick={handleSendPush}
-          disabled={sendPushLoading || !pushApiUrl}
-          aria-label="푸시 알림 보내기"
-          aria-busy={sendPushLoading}
-          className="app__secondary-btn"
-        >
-          {sendPushLoading ? "발송 중…" : "푸시 보내기"}
-        </button>
-      </section>
 
-      <section
-        className="app__secondary"
-        aria-labelledby="robot-heading"
-      >
-        <h2 id="robot-heading" className="app__heading--sub">
-          로봇 제어
-        </h2>
-        <p className="app__primary-hint">
-          로봇 시작/정지 API에 POST 요청을 보냅니다.
-        </p>
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={handleRobotStart}
-            disabled={!pushApiUrl || robotLoading !== null}
-            aria-label="로봇 시작"
-            aria-busy={robotLoading === "start"}
-            className="app__secondary-btn"
+        {activeTab === "robot" && (
+          <section
+            role="tabpanel"
+            id="panel-robot"
+            aria-labelledby="tab-robot"
+            className="app__primary"
           >
-            {robotLoading === "start" ? "요청 중…" : "로봇 시작"}
-          </button>
-          <button
-            type="button"
-            onClick={handleRobotStop}
-            disabled={!pushApiUrl || robotLoading !== null}
-            aria-label="로봇 정지"
-            aria-busy={robotLoading === "stop"}
-            className="app__secondary-btn"
-          >
-            {robotLoading === "stop" ? "요청 중…" : "로봇 정지"}
-          </button>
-        </div>
-        {robotMessage && (
-          <p className="app__status app__status--primary" aria-live="polite" style={{ marginTop: "0.5rem" }}>
-            {robotMessage}
-          </p>
+            <h2 id="robot-heading" className="visually-hidden">
+              로봇 제어
+            </h2>
+            <p className="app__primary-hint">
+              로봇 시작/정지 API에 POST 요청을 보냅니다.
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1rem" }}>
+              <button
+                type="button"
+                onClick={handleRobotStart}
+                disabled={!pushApiUrl || robotLoading !== null}
+                aria-label="로봇 시작"
+                aria-busy={robotLoading === "start"}
+                className="app__primary-btn"
+                style={{ flex: 1 }}
+              >
+                {robotLoading === "start" ? "요청 중…" : "로봇 시작"}
+              </button>
+              <button
+                type="button"
+                onClick={handleRobotStop}
+                disabled={!pushApiUrl || robotLoading !== null}
+                aria-label="로봇 정지"
+                aria-busy={robotLoading === "stop"}
+                className="app__secondary-btn"
+                style={{ flex: 1 }}
+              >
+                {robotLoading === "stop" ? "요청 중…" : "로봇 정지"}
+              </button>
+            </div>
+            {robotMessage && (
+              <p className="app__status app__status--primary" aria-live="polite" style={{ marginTop: "0.5rem" }}>
+                {robotMessage}
+              </p>
+            )}
+          </section>
         )}
-      </section>
+      </div>
 
       {showAddToHome && (
         <section
