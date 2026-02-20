@@ -52,6 +52,8 @@ function App() {
   const [sendPushError, setSendPushError] = useState<string | null>(null);
   const [lastApiRequest, setLastApiRequest] = useState<LastApiRequest | null>(null);
   const [lastApiResponse, setLastApiResponse] = useState<LastApiResponse | null>(null);
+  const [robotLoading, setRobotLoading] = useState<"start" | "stop" | null>(null);
+  const [robotMessage, setRobotMessage] = useState<string | null>(null);
   const { canPrompt, triggerInstall, isIOS, isInAppBrowser, showAddToHome } =
     useInstallPrompt();
 
@@ -178,6 +180,46 @@ function App() {
       setLastApiResponse({ error: message });
     } finally {
       setSendPushLoading(false);
+    }
+  };
+
+  const handleRobotStart = async () => {
+    if (!pushApiUrl) {
+      setRobotMessage("VITE_PUSH_API_URL이 설정되지 않았습니다.");
+      return;
+    }
+    setRobotMessage(null);
+    setRobotLoading("start");
+    try {
+      const res = await fetch(`${pushApiUrl.replace(/\/$/, "")}/robot/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      setRobotMessage(res.ok ? "로봇 시작 요청을 보냈습니다." : `요청 실패 (${res.status})`);
+    } catch (err) {
+      setRobotMessage(err instanceof Error ? err.message : "네트워크 오류");
+    } finally {
+      setRobotLoading(null);
+    }
+  };
+
+  const handleRobotStop = async () => {
+    if (!pushApiUrl) {
+      setRobotMessage("VITE_PUSH_API_URL이 설정되지 않았습니다.");
+      return;
+    }
+    setRobotMessage(null);
+    setRobotLoading("stop");
+    try {
+      const res = await fetch(`${pushApiUrl.replace(/\/$/, "")}/robot/stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      setRobotMessage(res.ok ? "로봇 정지 요청을 보냈습니다." : `요청 실패 (${res.status})`);
+    } catch (err) {
+      setRobotMessage(err instanceof Error ? err.message : "네트워크 오류");
+    } finally {
+      setRobotLoading(null);
     }
   };
 
@@ -354,6 +396,45 @@ function App() {
         >
           {sendPushLoading ? "발송 중…" : "푸시 보내기"}
         </button>
+      </section>
+
+      <section
+        className="app__secondary"
+        aria-labelledby="robot-heading"
+      >
+        <h2 id="robot-heading" className="app__heading--sub">
+          로봇 제어
+        </h2>
+        <p className="app__primary-hint">
+          로봇 시작/정지 API에 POST 요청을 보냅니다.
+        </p>
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={handleRobotStart}
+            disabled={!pushApiUrl || robotLoading !== null}
+            aria-label="로봇 시작"
+            aria-busy={robotLoading === "start"}
+            className="app__secondary-btn"
+          >
+            {robotLoading === "start" ? "요청 중…" : "로봇 시작"}
+          </button>
+          <button
+            type="button"
+            onClick={handleRobotStop}
+            disabled={!pushApiUrl || robotLoading !== null}
+            aria-label="로봇 정지"
+            aria-busy={robotLoading === "stop"}
+            className="app__secondary-btn"
+          >
+            {robotLoading === "stop" ? "요청 중…" : "로봇 정지"}
+          </button>
+        </div>
+        {robotMessage && (
+          <p className="app__status app__status--primary" aria-live="polite" style={{ marginTop: "0.5rem" }}>
+            {robotMessage}
+          </p>
+        )}
       </section>
 
       {showAddToHome && (
