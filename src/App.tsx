@@ -201,31 +201,25 @@ function App() {
     }
   };
 
-  const handleRobotStart = async () => {
+  const sendRobotCommand = async (action: "start" | "stop") => {
     if (!pushApiUrl) {
       setRobotMessage("VITE_PUSH_API_URL이 설정되지 않았습니다.");
       return;
     }
     setRobotMessage(null);
-    setRobotLoading("start");
-    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/commands/start`;
-    setLastRobotRequest({ url, method: "POST", action: "start" });
+    setRobotLoading(action);
+    const path = action === "start" ? "/robot/commands/start" : "/robot/commands/pause";
+    const url = `${pushApiUrl.replace(/\/$/, "")}${path}`;
+    setLastRobotRequest({ url, method: "POST", action });
     setLastRobotResponse(null);
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json().catch(() => ({}));
-      setLastRobotResponse({
-        status: res.status,
-        ok: res.ok,
-        data: Object.keys(data).length > 0 ? data : undefined,
-      });
-      setRobotMessage(res.ok ? "로봇 시작 요청을 보냈습니다." : `요청 실패 (${res.status})`);
+      const res = await fetch(url, { method: "POST" });
+      setLastRobotResponse({ status: res.status, ok: res.ok });
+      const successText =
+        action === "start" ? "로봇 시작 요청을 보냈습니다." : "로봇 정지 요청을 보냈습니다.";
+      setRobotMessage(res.ok ? successText : `요청 실패 (${res.status})`);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "네트워크 오류";
+      const message = err instanceof Error ? err.message : "네트워크 오류";
       setRobotMessage(message);
       setLastRobotResponse({ error: message });
     } finally {
@@ -233,37 +227,8 @@ function App() {
     }
   };
 
-  const handleRobotStop = async () => {
-    if (!pushApiUrl) {
-      setRobotMessage("VITE_PUSH_API_URL이 설정되지 않았습니다.");
-      return;
-    }
-    setRobotMessage(null);
-    setRobotLoading("stop");
-    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/commands/pause`;
-    setLastRobotRequest({ url, method: "POST", action: "stop" });
-    setLastRobotResponse(null);
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json().catch(() => ({}));
-      setLastRobotResponse({
-        status: res.status,
-        ok: res.ok,
-        data: Object.keys(data).length > 0 ? data : undefined,
-      });
-      setRobotMessage(res.ok ? "로봇 정지 요청을 보냈습니다." : `요청 실패 (${res.status})`);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "네트워크 오류";
-      setRobotMessage(message);
-      setLastRobotResponse({ error: message });
-    } finally {
-      setRobotLoading(null);
-    }
-  };
+  const handleRobotStart = () => sendRobotCommand("start");
+  const handleRobotStop = () => sendRobotCommand("stop");
 
   const handleEnableNotification = async () => {
     const trimmed = deviceName.trim();
@@ -626,8 +591,6 @@ function App() {
                   </p>
                   <pre className="app__pre">
                     {lastRobotRequest.method} {lastRobotRequest.url}
-                    {"\n"}
-                    {JSON.stringify({ action: lastRobotRequest.action }, null, 2)}
                   </pre>
                 </>
               )}
