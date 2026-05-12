@@ -208,7 +208,7 @@ function App() {
     }
     setRobotMessage(null);
     setRobotLoading("start");
-    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/start`;
+    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/commands/start`;
     setLastRobotRequest({ url, method: "POST", action: "start" });
     setLastRobotResponse(null);
     try {
@@ -240,7 +240,7 @@ function App() {
     }
     setRobotMessage(null);
     setRobotLoading("stop");
-    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/stop`;
+    const url = `${pushApiUrl.replace(/\/$/, "")}/robot/commands/pause`;
     setLastRobotRequest({ url, method: "POST", action: "stop" });
     setLastRobotResponse(null);
     try {
